@@ -248,11 +248,13 @@ def game():
 
     # Main loop
     running = True
+    user_quit = False
     while running:
         # ++++++++++++++++++  EVENTS ++++++++++++++++++
         for event in pygame.event.get():
             if event.type == pygame.QUIT:  # Close window event
                 running = False
+                user_quit = True
             elif event.type == pygame.VIDEORESIZE:  # Window resize event
                 new_width, new_height = event.w, event.h
 
@@ -491,5 +493,13 @@ def game():
 
     # Quit pygame properly
     pygame.quit()
+
+    # Return exit code: 0 for user quit (close window), 1 for crash/error
+    if user_quit:
+        import sys
+        sys.exit(0)  # Normal exit - user closed window
+    else:
+        import sys
+        sys.exit(1)  # Abnormal exit - game crashed or error
 
 game()
