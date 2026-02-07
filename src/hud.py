@@ -48,6 +48,19 @@ class Hud:
 
         # Initialize a font (using the default font and size 24)
         self.font = pygame.font.Font(None, 64)
+        self.icon_cache = {}
+        for ore in self.amounts:
+            if ore in self.atlas_items["item"]:
+                icon_rect = pygame.Rect(self.atlas_items["item"][ore])
+                icon = self.texture_atlas.subsurface(icon_rect)
+                icon = pygame.transform.scale(icon, self.icon_size)
+                self.icon_cache[ore] = icon
+
+        self.amount_text_cache = {}
+        self.pickaxe_y_cache = None
+        self.pickaxe_indicator_surface = None
+        self.fast_slow_cache = None
+        self.fast_slow_surface = None
 
     def update_amounts(self, new_amounts):
         """
@@ -64,46 +77,44 @@ class Hud:
 
         for ore, amount in self.amounts.items():
             # Retrieve the icon rect from atlas_items["item"][ore]
-            if ore in self.atlas_items["item"]:
-                icon_rect = pygame.Rect(self.atlas_items["item"][ore])
-                icon = self.texture_atlas.subsurface(icon_rect)
-                # Scale the icon to desired icon size
-                icon = pygame.transform.scale(icon, self.icon_size)
-                # Blit the icon
-                screen.blit(icon, (x, y))
+            if ore in self.icon_cache:
+                screen.blit(self.icon_cache[ore], (x, y))
             else:
                 # In case the ore key is missing, skip drawing the icon
                 continue
 
-            # Render the amount text with a black outline.
-            text = str(amount)
-            # You can tweak outline_width, text color, and outline color as needed.
-            text_surface = render_text_with_outline(text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2)
+            text_surface = self.amount_text_cache.get(ore)
+            if text_surface is None or text_surface[0] != amount:
+                text = str(amount)
+                text_surface = (amount, render_text_with_outline(text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2))
+                self.amount_text_cache[ore] = text_surface
             
             # Position text to the right of the icon
             text_x = x + self.icon_size[0] + self.spacing
-            text_y = y + (self.icon_size[1] - text_surface.get_height()) // 2 + 3
-            screen.blit(text_surface, (text_x, text_y))
+            text_y = y + (self.icon_size[1] - text_surface[1].get_height()) // 2 + 3
+            screen.blit(text_surface[1], (text_x, text_y))
 
             # Move to the next line
             y += self.icon_size[1] + self.spacing
 
         # Draw the pickaxe position indicator with outlined text
-        pickaxe_indicator_text = f"Y: {-int(pickaxe_y // BLOCK_SIZE)}"
-        pickaxe_indicator_surface = render_text_with_outline(pickaxe_indicator_text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2)
+        pickaxe_y_display = -int(pickaxe_y // BLOCK_SIZE)
+        if self.pickaxe_y_cache != pickaxe_y_display:
+            pickaxe_indicator_text = f"Y: {pickaxe_y_display}"
+            self.pickaxe_indicator_surface = render_text_with_outline(pickaxe_indicator_text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2)
+            self.pickaxe_y_cache = pickaxe_y_display
         pickaxe_indicator_x = x + self.spacing
         pickaxe_indicator_y = y + self.spacing
-        screen.blit(pickaxe_indicator_surface, (pickaxe_indicator_x, pickaxe_indicator_y))
+        screen.blit(self.pickaxe_indicator_surface, (pickaxe_indicator_x, pickaxe_indicator_y))
 
         # Draw the fast/slow indicator with outlined text
-        if fast_slow_active:
-            fast_slow_text = f"{fast_slow}"
-        else:
-            fast_slow_text = "Normal"
-        fast_slow_surface = render_text_with_outline(fast_slow_text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2)
+        fast_slow_text = f"{fast_slow}" if fast_slow_active else "Normal"
+        if self.fast_slow_cache != fast_slow_text:
+            self.fast_slow_surface = render_text_with_outline(fast_slow_text, self.font, (255, 255, 255), (0, 0, 0), outline_width=2)
+            self.fast_slow_cache = fast_slow_text
         fast_slow_x = x + self.spacing
-        fast_slow_y = y + 2 * self.spacing + fast_slow_surface.get_height()
-        screen.blit(fast_slow_surface, (fast_slow_x, fast_slow_y))
+        fast_slow_y = y + 2 * self.spacing + self.fast_slow_surface.get_height()
+        screen.blit(self.fast_slow_surface, (fast_slow_x, fast_slow_y))
 
             
 

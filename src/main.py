@@ -16,6 +16,7 @@ import asyncio
 import threading
 import random
 from hud import Hud
+from collections import deque
 
 # Track key states
 key_t_pressed = False
@@ -58,12 +59,17 @@ if config["CHAT_CONTROL"] == True:
         print("Subscribers count found:", subscribers)
 
 # Queues for chat
-tnt_queue = []
-tnt_superchat_queue = []
-fast_slow_queue = []
-big_queue = []
-pickaxe_queue = []
-mega_tnt_queue = []
+tnt_queue = deque()
+tnt_queue_authors = set()
+tnt_superchat_queue = deque()
+tnt_superchat_authors = set()
+fast_slow_queue = deque()
+fast_slow_authors = set()
+big_queue = deque()
+big_authors = set()
+pickaxe_queue = deque()
+pickaxe_authors = set()
+mega_tnt_queue = deque()
 
 async def handle_youtube_poll():
     global subscribers # Use global to modify the variable
@@ -86,51 +92,62 @@ async def handle_youtube_poll():
 
         # Check for "tnt" command (add author to regular tnt_queue) - Only English "tnt"
         if "tnt" in text_lower:
-            if author not in tnt_queue:
+            if author not in tnt_queue_authors:
                 tnt_queue.append(author)
+                tnt_queue_authors.add(author)
                 print(f"Added {author} to regular TNT queue")
 
         # Check for Superchat/Supersticker (add to superchat tnt queue)
         if is_superchat or is_supersticker:
-            if author not in [entry[0] for entry in tnt_superchat_queue]:
+            if author not in tnt_superchat_authors:
                  tnt_superchat_queue.append((author, text))
+                 tnt_superchat_authors.add(author)
                  print(f"Added {author} to Superchat TNT queue")
 
-        if "fast" in text.lower() and author not in [entry[0] for entry in fast_slow_queue]:
+        if "fast" in text.lower() and author not in fast_slow_authors:
             fast_slow_queue.append((author, "Fast"))
+            fast_slow_authors.add(author)
             print(f"Added {author} to Fast/Slow queue (Fast)")
-        elif "slow" in text.lower() and author not in [entry[0] for entry in fast_slow_queue]:
+        elif "slow" in text.lower() and author not in fast_slow_authors:
             fast_slow_queue.append((author, "Slow"))
+            fast_slow_authors.add(author)
             print(f"Added {author} to Fast/Slow queue (Slow)")
 
-        if "big" in text.lower() and author not in big_queue:
+        if "big" in text.lower() and author not in big_authors:
             big_queue.append(author)
+            big_authors.add(author)
             print(f"Added {author} to Big queue")
 
         # Check for pickaxe commands (add author and pickaxe type to pickaxe_queue)
         if "wood" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "wooden_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (wooden_pickaxe)")
         elif "stone" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "stone_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (stone_pickaxe)")
         elif "iron" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "iron_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (iron_pickaxe)")
         elif "gold" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "golden_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (golden_pickaxe)")
         elif "diamond" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "diamond_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (diamond_pickaxe)")
         elif "netherite" in text_lower:
-             if author not in [entry[0] for entry in pickaxe_queue]:
+             if author not in pickaxe_authors:
                  pickaxe_queue.append((author, "netherite_pickaxe"))
+                 pickaxe_authors.add(author)
                  print(f"Added {author} to Pickaxe queue (netherite_pickaxe)")
 
     # print the queue counts (optional, for debugging)
@@ -160,6 +177,7 @@ def game():
     # Create a resizable window
     screen_size = (window_width, window_height)
     screen = pygame.display.set_mode(screen_size, pygame.RESIZABLE)
+    scaled_surface = pygame.Surface(screen_size).convert()
     pygame.display.set_caption("Falling Pickaxe")
     # set icon
     icon = pygame.image.load(Path(__file__).parent.parent / "src/assets/pickaxe" / "diamond_pickaxe.png")
@@ -266,10 +284,14 @@ def game():
 
                 window_width, window_height = new_width, new_height
                 screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE)
+                scaled_surface = pygame.Surface((window_width, window_height)).convert()
 
         # ++++++++++++++++++  UPDATE ++++++++++++++++++
         # Determine which chunks are visible
         # Update physics
+
+        dt_ms = clock.get_time()
+        current_time = pygame.time.get_ticks()
 
         step_speed = 1 / FRAMERATE  # Fixed time step for physics simulation
         if fast_slow_active and fast_slow == "Fast":
@@ -283,7 +305,7 @@ def game():
         end_chunk_y = int(pickaxe.body.position.y + INTERNAL_HEIGHT) // (CHUNK_HEIGHT * BLOCK_SIZE)  + 1
 
         # Update pickaxe
-        pickaxe.update()
+        pickaxe.update(current_time)
 
         # Update camera
         camera.update(pickaxe.body.position.y)
@@ -296,7 +318,6 @@ def game():
         internal_surface.blit(background_image, ((INTERNAL_WIDTH - background_width) // 2, (INTERNAL_HEIGHT - background_height) // 2))
 
         # Check if it's time to spawn a new TNT (regular random spawn)
-        current_time = pygame.time.get_ticks()
         if (not config["CHAT_CONTROL"] or (not tnt_queue and not tnt_superchat_queue and not mega_tnt_queue)) and current_time - last_tnt_spawn >= tnt_spawn_interval:
              # Example: spawn TNT at position (400, 300) with a given texture
              new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
@@ -335,7 +356,7 @@ def game():
 
         # Update all TNTs
         for tnt in tnt_list:
-            tnt.update(tnt_list, explosions, camera)
+            tnt.update(tnt_list, explosions, camera, current_time)
 
         # Poll Yotutube api
         if live_chat_id is not None and current_time - last_yt_poll >= yt_poll_interval:
@@ -349,7 +370,8 @@ def game():
 
             # Handle regular TNT from chat command
             if tnt_queue:
-                author = tnt_queue.pop(0)
+                author = tnt_queue.popleft()
+                tnt_queue_authors.discard(author)
                 print(f"Spawning regular TNT for {author} (from chat command)")
                 new_tnt = Tnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
                              texture_atlas, atlas_items, sound_manager, owner_name=author)
@@ -358,7 +380,7 @@ def game():
 
             # Handle MegaTNT (New Subscriber)
             if mega_tnt_queue:
-                author = mega_tnt_queue.pop(0)
+                author = mega_tnt_queue.popleft()
                 print(f"Spawning MegaTNT for {author} (New Subscriber)")
                 new_megatnt = MegaTnt(space, pickaxe.body.position.x, pickaxe.body.position.y - 100,
                       texture_atlas, atlas_items, sound_manager, owner_name=author)
@@ -367,7 +389,8 @@ def game():
 
             # Handle Superchat/Supersticker TNT
             if tnt_superchat_queue:
-                author, text = tnt_superchat_queue.pop(0)
+                author, text = tnt_superchat_queue.popleft()
+                tnt_superchat_authors.discard(author)
                 print(f"Spawning TNT for {author} (Superchat: {text})")
                 last_tnt_spawn = current_time
                 for _ in range(config["TNT_AMOUNT_ON_SUPERCHAT"]):
@@ -376,7 +399,8 @@ def game():
 
             # Handle Fast/Slow command
             if fast_slow_queue:
-                author, q_fast_slow = fast_slow_queue.pop(0)
+                author, q_fast_slow = fast_slow_queue.popleft()
+                fast_slow_authors.discard(author)
                 print(f"Changing speed for {author} to {q_fast_slow}")
                 fast_slow_active = True
                 last_fast_slow = current_time
@@ -385,7 +409,8 @@ def game():
 
             # Handle Big pickaxe command
             if big_queue:
-                author = big_queue.pop(0)
+                author = big_queue.popleft()
+                big_authors.discard(author)
                 print(f"Making pickaxe big for {author}")
                 pickaxe.enlarge(enlarge_duration)
                 last_enlarge = current_time + enlarge_duration
@@ -393,7 +418,8 @@ def game():
 
             # Handle Pickaxe type command
             if pickaxe_queue:
-                author, pickaxe_type = pickaxe_queue.pop(0)
+                author, pickaxe_type = pickaxe_queue.popleft()
+                pickaxe_authors.discard(author)
                 print(f"Changing pickaxe for {author} to {pickaxe_type}")
                 pickaxe.pickaxe(pickaxe_type, texture_atlas, atlas_items)
                 last_random_pickaxe = current_time
@@ -401,7 +427,7 @@ def game():
 
 
         # Delete chunks
-        clean_chunks(start_chunk_y)
+        clean_chunks(start_chunk_y, space)
 
         # Draw blocks in visible chunks
         for chunk_x in range(-1, 2):
@@ -413,7 +439,7 @@ def game():
                         if block == None:
                             continue
 
-                        block.update(space, hud)
+                        block.update(space, hud, current_time)
                         block.draw(internal_surface, camera)
 
         # Draw pickaxe
@@ -425,7 +451,7 @@ def game():
 
         # Draw particles
         for explosion in explosions:
-            explosion.update()
+            explosion.update(dt_ms)
             explosion.draw(internal_surface, camera)
 
         # Optionally, remove explosions that have no particles left:
@@ -435,7 +461,7 @@ def game():
         hud.draw(internal_surface, pickaxe.body.position.y, fast_slow_active, fast_slow)
 
         # Scale internal surface to fit the resized window
-        scaled_surface = pygame.transform.smoothscale(internal_surface, (window_width, window_height))
+        pygame.transform.scale(internal_surface, (window_width, window_height), scaled_surface)
         screen.blit(scaled_surface, (0, 0))
 
         # Save progress

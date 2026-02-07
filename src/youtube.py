@@ -113,6 +113,7 @@ def get_new_live_chat_messages(live_chat_id):
     log_file = log_dir / f"chat_{datetime.today().strftime('%Y-%m-%d')}.txt"
 
     messages = []
+    log_lines = []
     for item in response["items"]:
         message_id = item["id"]  # Unique message ID
         if message_id not in seen_messages:
@@ -135,9 +136,7 @@ def get_new_live_chat_messages(live_chat_id):
             else:
                 log_message = f"[{timestamp}] {author}: {message}"
 
-            # Write to file
-            with open(log_file, "a+", encoding="utf-8") as chat_file:
-                chat_file.write(log_message + "\n")
+            log_lines.append(log_message)
 
             messages.append({
                 "timestamp": timestamp,
@@ -146,6 +145,10 @@ def get_new_live_chat_messages(live_chat_id):
                 "sc_details": item["snippet"].get("superChatDetails", None),
                 "ss_details": item["snippet"].get("superStickerDetails", None)
             })
+
+    if log_lines:
+        with open(log_file, "a+", encoding="utf-8") as chat_file:
+            chat_file.write("\n".join(log_lines) + "\n")
 
     return messages
 

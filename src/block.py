@@ -4,6 +4,8 @@ from constants import BLOCK_SIZE
 import random 
 
 class Block:
+    _destroy_stage_cache = {}
+
     def __init__(self, space, x, y, name, texture_atlas, atlas_items):
         if name == "bedrock":
             self.max_hp = 1000000000
@@ -84,20 +86,28 @@ class Block:
         self.heal_interval = 5000  # Heal every 5 seconds (5000 ms)
         self.first_hit_time = None  # Track the time when the block was first hit
 
+        cache_key = id(texture_atlas)
+        if cache_key not in Block._destroy_stage_cache:
+            Block._destroy_stage_cache[cache_key] = [
+                texture_atlas.subsurface(atlas_items["destroy_stage"][f"destroy_stage_{i}"])
+                for i in range(10)
+            ]
+        self.destroy_textures = Block._destroy_stage_cache[cache_key]
+
         space.add(self.body, self.shape)
 
-    def update(self, space, hud):
+    def update(self, space, hud, current_time=None):
         """Update block state"""
+        if current_time is None:
+            current_time = pygame.time.get_ticks()
 
         # Check if the block was hit for the first time
         if self.first_hit_time is None and self.hp < self.max_hp:
-            self.first_hit_time = pygame.time.get_ticks()
+            self.first_hit_time = current_time
             self.last_heal_time = self.first_hit_time
 
         # Check if the block has been hit before and start healing 5 seconds after it was first hit
         if self.first_hit_time is not None:
-            current_time = pygame.time.get_ticks()
-
             # Start healing 5 seconds after the block was first hit
             if current_time - self.first_hit_time >= 5000:
                 # Heal 20% of the max HP every 5 seconds (but not exceeding max_hp)
@@ -146,7 +156,5 @@ class Block:
             damage_stage = min(damage_stage, 9)  # Ensure it doesn't exceed stage_9
             
             # Draw the destroy stage overlay
-            destroy_texture = self.texture_atlas.subsurface(
-                self.atlas_items["destroy_stage"][f"destroy_stage_{damage_stage}"]
-            )
+            destroy_texture = self.destroy_textures[damage_stage]
             screen.blit(destroy_texture, (block_x, block_y))

@@ -126,6 +126,15 @@ def generate_chunk(chunk_x, chunk_y, texture_atlas, atlas_items, space):
 # Store generated chunks
 chunks = {}
 
+def _remove_block_from_space(block, space):
+    if block is None or space is None:
+        return
+    try:
+        if block.body in space.bodies or block.shape in space.shapes:
+            space.remove(block.body, block.shape)
+    except Exception:
+        pass
+
 def get_block(chunk_x, chunk_y, x, y, texture_atlas, atlas_items, space):
     if chunk_y < 0:
         return None
@@ -138,13 +147,20 @@ def get_block(chunk_x, chunk_y, x, y, texture_atlas, atlas_items, space):
             
     return chunks[(chunk_x, chunk_y)][y][x]
 
-def delete_block(chunk_x, chunk_y, x, y):
+def delete_block(chunk_x, chunk_y, x, y, space=None):
     if (chunk_x, chunk_y) in chunks:
-        chunks[(chunk_x, chunk_y)][y][x].hp = 0
+        block = chunks[(chunk_x, chunk_y)][y][x]
+        if block is not None:
+            block.hp = 0
+            _remove_block_from_space(block, space)
         del chunks[(chunk_x, chunk_y)][y][x]
         chunks[(chunk_x, chunk_y)][y][x] = None
 
-def clean_chunks(start_chunk_y):
+def clean_chunks(start_chunk_y, space):
     for (chunk_x, chunk_y) in list(chunks.keys()):
         if chunk_y < start_chunk_y:
+            chunk = chunks[(chunk_x, chunk_y)]
+            for row in chunk:
+                for block in row:
+                    _remove_block_from_space(block, space)
             del chunks[(chunk_x, chunk_y)]
