@@ -150,8 +150,10 @@ class Pickaxe:
         elif(name =="netherite_pickaxe"):
             self.damage = 12
 
-    def update(self):
+    def update(self, current_time=None):
         """Apply gravity, update movement, check collisions, and rotate."""
+        if current_time is None:
+            current_time = pygame.time.get_ticks()
         # Manually limit the falling speed (terminal velocity)
         if self.body.velocity.y > 1000:
             self.body.velocity = (self.body.velocity.x, 1000)
@@ -182,7 +184,7 @@ class Pickaxe:
             self.body.position = (self.body.position.x - dx, self.body.position.y)
 
         # If pickaxe is enlarged, check if time is up
-        if hasattr(self, "enlarge_end_time") and pygame.time.get_ticks() > self.enlarge_end_time:
+        if hasattr(self, "enlarge_end_time") and current_time > self.enlarge_end_time:
             self.reset_size()
             self.is_enlarged = False
 

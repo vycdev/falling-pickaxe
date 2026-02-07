@@ -1,9 +1,6 @@
 import pygame
 import random
 
-import pygame
-import random
-
 class ExplosionParticle:
     def __init__(self, pos, texture_atlas, atlas_items, frame_count=16, frame_duration=1):
         """
@@ -26,13 +23,20 @@ class ExplosionParticle:
 
         # Random rotation between 0 and 360 degrees.
         self.rotation = random.uniform(0, 360)
+        self.frames = []
+        for i in range(self.frame_count):
+            key = f"explosion_{i}"
+            rect = pygame.Rect(self.atlas_items["particle"][key])
+            texture = self.texture_atlas.subsurface(rect)
+            texture = pygame.transform.rotate(texture, self.rotation)
+            self.frames.append(texture)
 
-    def update(self, dt):
+    def update(self, dt_ms):
         """Update animation frame based on elapsed time or frame count."""
         if self.finished:
             return
 
-        self.elapsed_time += dt * 1000
+        self.elapsed_time += dt_ms
         if self.elapsed_time >= self.frame_duration:
             self.elapsed_time -= self.frame_duration
             self.current_frame += 1
@@ -46,20 +50,10 @@ class ExplosionParticle:
         if self.finished:
             return
         
-        # Get the corresponding rect for the current explosion frame
-        key = f"explosion_{self.current_frame}"
-        # Ensure the atlas_items[key] is a tuple or pygame.Rect
-        rect = pygame.Rect(self.atlas_items["particle"][key])
-        texture = self.texture_atlas.subsurface(rect)
-
-        # Rotate the texture
-        texture = pygame.transform.rotate(texture, self.rotation)
-
-        # Scale texture to the desired size
         # Adjust drawing position by camera offset (if only vertical, subtract camera.offset_y)
         draw_pos = (self.pos.x - camera.offset_x, self.pos.y - camera.offset_y)
 
-        screen.blit(texture, draw_pos)
+        screen.blit(self.frames[self.current_frame], draw_pos)
 
 class Explosion:
     def __init__(self, pos, texture_atlas, atlas_items, particle_count=20):
@@ -77,12 +71,9 @@ class Explosion:
             particle = ExplosionParticle(pos + offset, texture_atlas, atlas_items)
             self.particles.append(particle)
 
-    def update(self):
-        # get time from last frame
-        dt = pygame.time.get_ticks()
-
+    def update(self, dt_ms):
         for particle in self.particles:
-            particle.update(dt)
+            particle.update(dt_ms)
 
         # Optionally remove finished particles
         self.particles = [p for p in self.particles if not p.finished]
