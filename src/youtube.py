@@ -78,11 +78,29 @@ def get_live_stream(livestream_id):
 
 def get_live_chat_id(live_stream_id):
     response = youtube.videos().list(
-        part="liveStreamingDetails",
+        part="liveStreamingDetails,snippet,status",
         id=live_stream_id
     ).execute()
 
-    return response["items"][0]["liveStreamingDetails"]["activeLiveChatId"]
+    if not response.get("items"):
+        print("ERROR: YouTube API returned no video for this stream ID.")
+        return None
+
+    video = response["items"][0]
+    details = video.get("liveStreamingDetails", {})
+
+    live_chat_id = details.get("activeLiveChatId")
+
+    if live_chat_id:
+        print("Live chat ID found:", live_chat_id)
+        return live_chat_id
+
+    print("ERROR: YouTube did not return an active live chat ID.")
+    print("Video title:", video.get("snippet", {}).get("title"))
+    print("Broadcast status:", details.get("actualStartTime", "No actual start time"))
+    print("Privacy status:", video.get("status", {}).get("privacyStatus"))
+    print("Check that live chat is enabled in YouTube Studio.")
+    return None
 
 def get_live_chat_messages(live_chat_id):
     response = youtube.liveChatMessages().list(
