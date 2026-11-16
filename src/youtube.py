@@ -77,12 +77,30 @@ def get_live_stream(livestream_id):
         return None
 
 def get_live_chat_id(live_stream_id):
+    """Return the active live chat ID for a stream, or None if it has none."""
     response = youtube.videos().list(
         part="liveStreamingDetails",
         id=live_stream_id
     ).execute()
 
-    return response["items"][0]["liveStreamingDetails"]["activeLiveChatId"]
+    if not response.get("items"):
+        print("YouTube returned no video for this stream ID.")
+        return None
+
+    video = response["items"][0]
+    details = video.get("liveStreamingDetails", {})
+    live_chat_id = details.get("activeLiveChatId")
+    if live_chat_id:
+        return live_chat_id
+
+    # Explain why there is no chat so the streamer knows what to fix.
+    if not details:
+        print("This video is not a live stream.")
+    elif details.get("actualEndTime"):
+        print("This live stream has ended, so its chat is closed.")
+    else:
+        print("This live stream has no active chat. Check that live chat is enabled in YouTube Studio.")
+    return None
 
 def get_live_chat_messages(live_chat_id):
     response = youtube.liveChatMessages().list(
